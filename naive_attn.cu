@@ -179,50 +179,6 @@ __global__ void matrix_multiply(const float *P, const float *V, float *O,
         O[pile*(M*N) + row*N + col] = acc;
 }
 
-
-/*
-    row_wise_softmax(R, S) : 
-        Apply softmax each row of matrix R[b][h], save into row of matrix S[b][h] of same position.
-*/
-inline __device__ double reduce_max(int N, double *src, double *aux) {
-    int offset = threadIdx.x;
-    int active = N; // Length of active section
-    
-    // Load source array into shared memory
-    if (offset < N)
-        aux[offset] = src[offset];
-
-    // Find maximum element of the sub-array
-    // ※ Read 'Reduction' in report.
-    for (; active > 1; active = ceil(active, 2)) {
-        __syncthreads();
-        int stride = ceil(active, 2);
-        if (offset + stride < active)
-            aux[offset] = max_double(aux[offset], aux[offset + stride]);
-    }
-
-    return aux[0];
-}
-
-inline __device__ double reduce_sum() {
-    int offset = threadIdx.x;
-    int active = N; // Length of active section
-    
-    // Load source array into shared memory
-    if (offset < N)
-        aux[offset] = src[offset];
-
-    // Find sum of elements in sub-array
-    for (; active > 1; active = ceil(active, 2)) {
-        __syncthreads();
-        int stride = ceil(active, 2);
-        if (offset + stride < active)
-            aux[offset] += aux[offset + stride];        
-    }
-
-    return aux[0];
-}
-
 torch::Tensor naive_attention(torch::Tensor Q, torch::Tensor K, torch::Tensor V) {
     const int B = Q.size(0);	// Batch size
     const int nh = Q.size(1);	// Number of heads
@@ -258,19 +214,19 @@ torch::Tensor naive_attention(torch::Tensor Q, torch::Tensor K, torch::Tensor V)
     dim3 ker1_GridDim(num_tiles, num_tiles, B*nh);
     dim3 ker1_BlockDim(tile_size, tile_size, 1);
     scaled_dot_product<<<ker1_GridDim, ker1_BlockDim>>> (
-        Q.data_ptr(), K.data_ptr(), T.data_ptr(), scale, N, d
+        (float*) Q.data_ptr(), (float*) K.data_ptr(), (float*) T.data_ptr(), scale, N, d
     );
 
     dim3 ker2_GridDim(N, B*nh, 1);
     dim3 ker2_BlockDim(N, 1, 1);
     int  ker2_smem_size = sizeof(float) * N;
-    reduce_max_sub_exp<<<ker2_GridDim, ker2_BlockDim, ker2_smem_size>>> (T.data_ptr(), N);
-    reduce_sum_div<<<ker2_GridDim, ker2_BlockDim, ker2_smem_size>>> (T.data_ptr(), N);
+    reduce_max_sub_exp<<<ker2_GridDim, ker2_BlockDim, ker2_smem_size>>> ((float*) T.data_ptr(), N);
+    reduce_sum_div<<<ker2_GridDim, ker2_BlockDim, ker2_smem_size>>> ((float*) T.data_ptr(), N);
 
     dim3 ker3_GridDim(ceil(d, tile_size), ceil(N, tile_size), B*nh);
     dim3 ker3_BlockDim(tile_size, tile_size, 1);
     matrix_multiply<<<ker3_GridDim, ker3_BlockDim>>> (
-        T.data_ptr(), V.data_ptr(), O.data_ptr(), N, N, d
+        (float*) T.data_ptr(), (float*) V.data_ptr(), (float*) O.data_ptr(), N, N, d
     );
 
     // Return output
