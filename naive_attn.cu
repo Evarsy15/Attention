@@ -230,6 +230,5 @@ torch::Tensor naive_attention(torch::Tensor Q, torch::Tensor K, torch::Tensor V)
     );
 
     // Return output
-    O = O.to(torch::kCPU);
     return O;
 }
