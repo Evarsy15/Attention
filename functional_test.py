@@ -27,7 +27,7 @@ def scaled_dot_product(q, k):
 def softmax(S):
     F.softmax(S, dim=-1)
 
-def mat_mul(P, V):
+def matrix_multiply(P, V):
     return P @ V
 
 # Scaled-Dot-Product
@@ -42,7 +42,7 @@ custom_kernels.softmax(S_naive)
 print(S_torch[0][0]); print(S_naive[0][0])
 print('softmax values sanity check:', torch.allclose(S_naive, S_torch, rtol=0, atol=1e-02))
 
-O_torch = mat_mul(S_torch, v)
-O_naive = mat_mul(S_naive, v)
+O_torch = matrix_multiply(S_torch, v)
+O_naive = matrix_multiply(S_naive, v)
 print(O_torch[0][0]); print(O_naive[0][0])
 print('mat-mul values sanity check:', torch.allclose(O_naive, O_torch, rtol=0, atol=1e-02))

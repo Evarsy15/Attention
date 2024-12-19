@@ -257,15 +257,15 @@ torch::Tensor scaled_dot_product(torch::Tensor Q, torch::Tensor K) {
 }
 
 void softmax(torch::Tensor S) {
-    const int B = Q.size(0);	// Batch size
-    const int nh = Q.size(1);	// Number of heads
-    const int N = Q.size(2);	// Sequence size
+    const int B = S.size(0);	// Batch size
+    const int nh = S.size(1);	// Number of heads
+    const int N = S.size(2);	// Sequence size
 
     dim3 GridDim(N, B*nh, 1);
     dim3 BlockDim(N, 1, 1);
     int  smem_size = sizeof(float) * N;
-    reduce_max_sub_exp<<<GridDim, BlockDim, ker2_smem_size>>> ((float*) S.data_ptr(), N);
-    reduce_sum_div<<<GridDim, ker2_BlockDim, ker2_smem_size>>> ((float*) S.data_ptr(), N);
+    reduce_max_sub_exp<<<GridDim, BlockDim, smem_size>>> ((float*) S.data_ptr(), N);
+    reduce_sum_div<<<GridDim, ker2_BlockDim, smem_size>>> ((float*) S.data_ptr(), N);
 }
 
 torch::Tensor matrix_multiply(torch::Tensor P, torch::Tensor V) {
