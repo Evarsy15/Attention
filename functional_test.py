@@ -25,7 +25,7 @@ def scaled_dot_product(q, k):
     return (q @ k.transpose(-2, -1) * (1.0 / math.sqrt(k.size(-1))))
 
 def softmax(S):
-    F.softmax(S, dim=-1)
+    S = F.softmax(S, dim=-1)
 
 def matrix_multiply(P, V):
     return P @ V
