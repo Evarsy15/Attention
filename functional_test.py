@@ -42,7 +42,7 @@ custom_kernels.softmax(S_naive)
 print(P_torch[0][0]); print(S_naive[0][0])
 print('softmax values sanity check:', torch.allclose(S_naive, P_torch, rtol=0, atol=1e-02))
 
-O_torch = matrix_multiply(S_torch, v)
+O_torch = matrix_multiply(P_torch, v)
 O_naive = matrix_multiply(S_naive, v)
 print(O_torch[0][0]); print(O_naive[0][0])
 print('mat-mul values sanity check:', torch.allclose(O_naive, O_torch, rtol=0, atol=1e-02))
