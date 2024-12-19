@@ -265,7 +265,7 @@ void softmax(torch::Tensor S) {
     dim3 BlockDim(N, 1, 1);
     int  smem_size = sizeof(float) * N;
     reduce_max_sub_exp<<<GridDim, BlockDim, smem_size>>> ((float*) S.data_ptr(), N);
-    reduce_sum_div<<<GridDim, ker2_BlockDim, smem_size>>> ((float*) S.data_ptr(), N);
+    reduce_sum_div<<<GridDim, BlockDim, smem_size>>> ((float*) S.data_ptr(), N);
 }
 
 torch::Tensor matrix_multiply(torch::Tensor P, torch::Tensor V) {
