@@ -232,3 +232,55 @@ torch::Tensor naive_attention(torch::Tensor Q, torch::Tensor K, torch::Tensor V)
     // Return output
     return O;
 }
+
+torch::Tensor scaled_dot_product(torch::Tensor Q, torch::Tensor K) {
+    const int B = Q.size(0);	// Batch size
+    const int nh = Q.size(1);	// Number of heads
+    const int N = Q.size(2);	// Sequence size
+    const int d = Q.size(3);	// Embedding size
+
+    auto T = torch::zeros({B, nh, N, N}); // Temporal memory for storing QK^T/√d
+    torch::Device device(torch::kCUDA);
+    T = T.to(device);
+
+    float scale = (float) ((double) 1.0 / sqrt(d));
+    printf("1/√d = %f\n", scale);
+
+    int  num_tiles = ceil(N, tile_size);
+    dim3 GridDim(num_tiles, num_tiles, B*nh);
+    dim3 BlockDim(tile_size, tile_size, 1);
+    scaled_dot_product<<<GridDim, BlockDim>>> (
+        (float*) Q.data_ptr(), (float*) K.data_ptr(), (float*) T.data_ptr(), scale, N, d
+    );
+
+    return T;
+}
+
+void softmax(torch::Tensor S) {
+    const int B = Q.size(0);	// Batch size
+    const int nh = Q.size(1);	// Number of heads
+    const int N = Q.size(2);	// Sequence size
+
+    dim3 GridDim(N, B*nh, 1);
+    dim3 BlockDim(N, 1, 1);
+    int  smem_size = sizeof(float) * N;
+    reduce_max_sub_exp<<<GridDim, BlockDim, ker2_smem_size>>> ((float*) S.data_ptr(), N);
+    reduce_sum_div<<<GridDim, ker2_BlockDim, ker2_smem_size>>> ((float*) S.data_ptr(), N);
+}
+
+torch::Tensor matrix_multiply(torch::Tensor P, torch::Tensor V) {
+    const int B = V.size(0);	// Batch size
+    const int nh = V.size(1);	// Number of heads
+    const int N = V.size(2);	// Sequence size
+    const int d = V.size(3);	// Embedding size
+
+    auto O = torch::zeros_like(V);
+    torch::Device device(torch::kCUDA);
+    O = O.to(device);
+
+    dim3 GridDim(ceil(d, tile_size), ceil(N, tile_size), B*nh);
+    dim3 BlockDim(tile_size, tile_size, 1);
+    matrix_multiply<<<GridDim, BlockDim>>> (
+        (float*) P.data_ptr(), (float*) V.data_ptr(), (float*) O.data_ptr(), N, N, d
+    );
+}
