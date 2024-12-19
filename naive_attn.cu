@@ -52,6 +52,8 @@ __global__ void scaled_dot_product(const float *Q, const float *K, float *S,
 
     int row = blockDim.y * blockIdx.y + threadIdx.y;
     int col = blockDim.x * blockIdx.x + threadIdx.x;
+    int rowbase = blockDim.y * blockIdx.y;
+    int colbase = blockDim.x * blockIdx.x;
     int rowoff = threadIdx.y;
     int coloff = threadIdx.x;
 
@@ -61,9 +63,9 @@ __global__ void scaled_dot_product(const float *Q, const float *K, float *S,
     float acc = 0.0;
     for (int i = 0; i < D; i += tile_size) {
         // Load tiles of operand matrices into shared memory
-        if (row < N && i + coloff < D) {
-            tile_Q[rowoff][coloff] = Q[pile*(N*D) + row*D + (i+coloff)];
-            tile_K[rowoff][coloff] = K[pile*(N*D) + row*D + (i+coloff)];
+        if (row < N && col < N && i + coloff < D) {
+            tile_Q[rowoff][coloff] = Q[pile*(N*D) + (rowbase + rowoff)*D + (i+coloff)];
+            tile_K[rowoff][coloff] = K[pile*(N*D) + (colbase + rowoff)*D + (i+coloff)];
         }
         __syncthreads();
 
