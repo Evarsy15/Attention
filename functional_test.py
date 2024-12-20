@@ -39,11 +39,11 @@ print('scaled-dot-product values sanity check:', torch.allclose(S_naive, S_torch
 # Softmax
 P_torch = softmax(S_torch)
 custom_kernels.softmax(S_naive)
-print(P_torch[0][0])
-print(S_naive[0][0])
+print(P_torch[0][1])
+print(S_naive[0][1])
 print('softmax values sanity check:', torch.allclose(S_naive, P_torch, rtol=0, atol=1e-02))
 
 O_torch = matrix_multiply(P_torch, v)
 O_naive = matrix_multiply(S_naive, v)
-print(O_torch[0][0]); print(O_naive[0][0])
+print(O_torch[0][1]); print(O_naive[0][1])
 print('mat-mul values sanity check:', torch.allclose(O_naive, O_torch, rtol=0, atol=1e-02))
