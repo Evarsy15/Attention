@@ -306,7 +306,7 @@ torch::Tensor naive_attention(torch::Tensor Q, torch::Tensor K, torch::Tensor V)
 
         reduce_max_sub_exp<<<ker2_GridDim, ker2_BlockDim, ker2_smem_size>>> ((float*) T.data_ptr(), N);
         reduce_sum_div<<<ker2_GridDim, ker2_BlockDim, ker2_smem_size>>> ((float*) T.data_ptr(), N);
-    } else if (N <= max_threads_per_block * max_threads_per_block) {
+    } else {
         int BlockSize = max_threads_per_block;
         dim3 ker2_GridDim(N, B*nh, 1);
         dim3 ker2_BlockDim(BlockSize, 1, 1);
@@ -314,8 +314,6 @@ torch::Tensor naive_attention(torch::Tensor Q, torch::Tensor K, torch::Tensor V)
 
         reduce_max_sub_exp_2<<<ker2_GridDim, ker2_BlockDim, ker2_smem_size>>> ((float*) T.data_ptr(), N, BlockSize);
         reduce_sum_div_2<<<ker2_GridDim, ker2_BlockDim, ker2_smem_size>>> ((float*) T.data_ptr(), N, BlockSize);
-    } else {
-        printf("Sequence length N(%d) is too large.\n", N);
     }
 
     dim3 ker3_GridDim(ceil(d, tile_size), ceil(N, tile_size), B*nh);
