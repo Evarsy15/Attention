@@ -8,7 +8,7 @@ custom_kernels = load(name='flash_attn', sources=['main.cpp', 'flash_attn.cu', '
 
 batch_size = 4
 n_head = 12
-seq_len = 256
+seq_len = 2048
 head_embd = 64
 
 q = torch.randn(batch_size, n_head, seq_len, head_embd).cuda()
