@@ -112,6 +112,41 @@ __global__ void reduce_max_sub_exp(float *S, int N) {
     S[idx] = exp(S[idx] - aux[0]);
 }
 
+__global__ void reduce_max_sub_exp_2(float *S, int N, int BlockSize) {
+    int pile = blockIdx.y;
+    int row  = blockIdx.x;
+    int col  = threadIdx.x;
+    int idx  = pile*(N*N) + row*N + col;
+    
+    extern __shared__ float aux[];
+    float reduce_max_val = -INFINITY;
+
+    // Reduce-max on each row of S
+    for (int i = 0; i < N; i += BlockSize) {
+        // Load target row-vector into shared memory
+        if (i + col < N)
+            aux[col] = S[idx + i];
+        __syncthreads();
+        
+        // Process Reduce-max on shared memory vector 'aux'
+        int active = BlockSize < (N - i) ? BlockSize : (N - i);
+        for (; active > 1; active = ceil(active, 2)) {
+            int stride = ceil(active, 2);
+            if (col + stride < active)
+                aux[col] = max_float(aux[col], aux[col + stride]);
+            __syncthreads();
+        }
+
+        reduce_max_val = max_float(aux[0], reduce_max_val);
+    }
+        
+    // Compute exp(S-m) on each row
+    __syncthreads();
+    for (int i = 0; i < N; i += BlockSize)
+        if (i + col < N)
+            S[idx + i] = exp(S[idx + i] - reduce_max_val);
+}
+
 /*
     reduce_sum_div(S, N):
         Compute row-wise reduce-sum and broadcast-div in a row.
@@ -139,8 +174,55 @@ __global__ void reduce_sum_div(float *S, int N) {
         __syncthreads();
     }
         
-    // Compute exp(S-m) on each row
+    // Compute S_ij / sum(S_ij)
     S[idx] = S[idx] / aux[0];
+}
+
+__global__ void reduce_sum_div_2(float *S, int N, int BlockSize) {
+    int pile = blockIdx.y;
+    int row  = blockIdx.x;
+    int col  = threadIdx.x;
+    int idx  = pile*(N*N) + row*N + col;
+
+    // Load target row-vector into shared memory
+    extern __shared__ float aux[];
+    float reduce_sum_val = 0.0;
+
+    // Reduce-sum on each row of R = exp(S-m)
+    for (int i = 0; i < N; i += BlockSize) {
+        // Load target row-vector into shared memory
+        if (i + col < N)
+            aux[col] = S[idx + i];
+        __syncthreads();
+
+        // Process Reduce-max on shared memory vector 'aux'
+        int active = BlockSize < (N - i) ? BlockSize : (N - i);
+        for (; active > 1; active = ceil(active, 2)) {
+            int stride = ceil(active, 2);
+            if (col + stride < active)
+                aux[col] += aux[col + stride];
+            __syncthreads();
+        }
+
+        reduce_sum_val += aux[0];
+    }
+    
+        
+    // Process Reduce-max on shared memory vector 'aux'
+    int active = N;
+    for (; active > 1; active = ceil(active, 2)) {
+        int stride = ceil(active, 2);
+        if (col + stride < active)
+            aux[col] += aux[col + stride];
+        __syncthreads();
+        
+    }
+    
+    // Compute S_ij / sum(S_ij)
+    __syncthreads();
+    for (int i = 0; i < N; i += BlockSize)
+        if (i + col < N)
+            S[idx + i] /= aux[0];
 }
 
 /*
@@ -150,7 +232,7 @@ __global__ void reduce_sum_div(float *S, int N) {
 __global__ void matrix_multiply(const float *P, const float *V, float *O,
                                 const int M, const int K, const int N) {
     // Matrix Pile ID
-    int pile = blockDim.z * blockIdx.z + threadIdx.z;
+    int pile = blockIdx.z;
 
     // Row and Column
     int row = blockDim.y * blockIdx.y + threadIdx.y;
@@ -205,13 +287,7 @@ torch::Tensor naive_attention(torch::Tensor Q, torch::Tensor K, torch::Tensor V)
     printf("Max Threads per Block : %d\n", max_threads_per_block);
     printf("Max shared memory: %d\n", max_sram_size);
 
-    // ============= Call kernels ==================
-    // matmul<<>>();
-    // softmax<<>>();
-    // ..
-    // =============================================
     float scale = (float) ((double) 1.0 / sqrt(d));
-
     int  num_tiles = ceil(N, tile_size);
     dim3 ker1_GridDim(num_tiles, num_tiles, B*nh);
     dim3 ker1_BlockDim(tile_size, tile_size, 1);
@@ -219,11 +295,22 @@ torch::Tensor naive_attention(torch::Tensor Q, torch::Tensor K, torch::Tensor V)
         (float*) Q.data_ptr(), (float*) K.data_ptr(), (float*) T.data_ptr(), scale, N, d
     );
 
-    dim3 ker2_GridDim(N, B*nh, 1);
-    dim3 ker2_BlockDim(N, 1, 1);
-    int  ker2_smem_size = sizeof(float) * N;
-    reduce_max_sub_exp<<<ker2_GridDim, ker2_BlockDim, ker2_smem_size>>> ((float*) T.data_ptr(), N);
-    reduce_sum_div<<<ker2_GridDim, ker2_BlockDim, ker2_smem_size>>> ((float*) T.data_ptr(), N);
+    if (N <= max_threads_per_block) {
+        dim3 ker2_GridDim(N, B*nh, 1);
+        dim3 ker2_BlockDim(N, 1, 1);
+        int  ker2_smem_size = sizeof(float) * N;
+
+        reduce_max_sub_exp<<<ker2_GridDim, ker2_BlockDim, ker2_smem_size>>> ((float*) T.data_ptr(), N);
+        reduce_sum_div<<<ker2_GridDim, ker2_BlockDim, ker2_smem_size>>> ((float*) T.data_ptr(), N);
+    } else if (max_threads_per_block * max_threads_per_block <= N) {
+        int BlockSize = max_threads_per_block;
+        dim3 ker2_GridDim(N, B*nh, 1);
+        dim3 ker2_BlockDim(BlockSize, 1, 1);
+        int  ker2_smem_size = sizeof(float) * BlockSize;
+
+        reduce_max_sub_exp_2<<<ker2_GridDim, ker2_BlockDim, ker2_smem_size>>> ((float*) T.data_ptr(), N, BlockSize);
+        reduce_sum_div_2<<<ker2_GridDim, ker2_BlockDim, ker2_smem_size>>> ((float*) T.data_ptr(), N, BlockSize);
+    }
 
     dim3 ker3_GridDim(ceil(d, tile_size), ceil(N, tile_size), B*nh);
     dim3 ker3_BlockDim(tile_size, tile_size, 1);
