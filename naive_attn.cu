@@ -120,7 +120,6 @@ __global__ void reduce_max_sub_exp_2(float *S, int N, int BlockSize) {
     
     extern __shared__ float aux[];
     float reduce_max_val = -INFINITY;
-    printf("Reduce_max_val: %f\n", reduce_max_val);
 
     // Reduce-max on each row of S
     for (int i = 0; i < N; i += BlockSize) {
@@ -307,7 +306,7 @@ torch::Tensor naive_attention(torch::Tensor Q, torch::Tensor K, torch::Tensor V)
 
         reduce_max_sub_exp<<<ker2_GridDim, ker2_BlockDim, ker2_smem_size>>> ((float*) T.data_ptr(), N);
         reduce_sum_div<<<ker2_GridDim, ker2_BlockDim, ker2_smem_size>>> ((float*) T.data_ptr(), N);
-    } else if (max_threads_per_block * max_threads_per_block <= N) {
+    } else if (N <= max_threads_per_block * max_threads_per_block) {
         int BlockSize = max_threads_per_block;
         dim3 ker2_GridDim(N, B*nh, 1);
         dim3 ker2_BlockDim(BlockSize, 1, 1);
