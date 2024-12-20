@@ -120,7 +120,7 @@ __global__ void reduce_max_sub_exp_2(float *S, int N, int BlockSize) {
     
     extern __shared__ float aux[];
     float reduce_max_val = -INFINITY;
-    //printf("Reduce_max_val: %f\n", reduce_max_val);
+    printf("Reduce_max_val: %f\n", reduce_max_val);
 
     // Reduce-max on each row of S
     for (int i = 0; i < N; i += BlockSize) {
@@ -227,7 +227,7 @@ __global__ void reduce_sum_div_2(float *S, int N, int BlockSize) {
     __syncthreads();
     for (int i = 0; i < N; i += BlockSize)
         if (i + col < N)
-            S[idx + i] /= aux[0];
+            S[idx + i] = S[idx + i] / reduce_sum_val;
 }
 
 /*
