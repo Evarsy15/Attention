@@ -71,7 +71,7 @@ __global__ void flash_attention(const float *Q, const float *K, const float *V, 
             float acc = 0.0;
             for (int k = 0; k < d; k++)
                 acc += _Q_i_[ty*d + k] * _K_j_[tx*d + k];
-            _S_ij_[ty*B_c + tx] = acc;
+            _S_ij_[ty*B_c + tx] = acc / sqrtf(d);
             __syncthreads();
 
             // Compute ~m_ij = rowmax(S_ij)
@@ -167,8 +167,11 @@ torch::Tensor flash_attention(torch::Tensor Q, torch::Tensor K, torch::Tensor V)
     int SharedMemSize = sizeof(float) * (2*(B_r*d) + 2*(B_c*d) + (B_r*B_c) + 6*(B_r));
     printf("Required shared memory: %d\n", SharedMemSize);
 
-    if (SharedMemSize > max_sram_size)
+    if (SharedMemSize > max_sram_size) {
+        printf("Unsupported Embed size(d)\n");
         return O;
+    }
+        
 
     // ============= Call kernel ==================
     // _flash_attention<<>>();
