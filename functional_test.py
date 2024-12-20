@@ -6,7 +6,7 @@ from torch.utils.cpp_extension import load
 
 custom_kernels = load(name='flash_attn', sources=['main.cpp', 'flash_attn.cu', 'naive_attn.cu'], extra_cuda_cflags=['-O2'])
 
-batch_size = 16
+batch_size = 4
 n_head = 12
 seq_len = 2048
 head_embd = 64
