@@ -25,8 +25,9 @@ torch_result = torch_attn(q, k, v)
 naive_result = custom_kernels.naive_attention(q, k, v)
 flash_result = custom_kernels.flash_attention(q, k, v)
 
-# print(torch_result[0][0])
-# print(naive_result[0][0])
+print(torch_result[0][0])
+print(naive_result[0][0])
+print(flash_result[0][0])
 
 print('attn values sanity check:', torch.allclose(naive_result, torch_result, rtol=0, atol=1e-02))
 print('attn values sanity check:', torch.allclose(flash_result, torch_result, rtol=0, atol=1e-02))
