@@ -21,17 +21,17 @@ __global__ void flash_attention(const float *Q, const float *K, const float *V, 
     int tx = threadIdx.x;
 
     extern __shared__ float SRAM[];
-    __shared__ float *_Q_i_ = SRAM;                 // Q_i : (B_r × d)-matrix
-    __shared__ float *_K_j_ = _Q_i_ + (B_r*d);      // K_j : (B_c × d)-matrix
-    __shared__ float *_V_j_ = _K_j_ + (B_c*d);      // V_j : (B_c × d)-matrix
-    __shared__ float *_O_i_ = _V_j_ + (B_c*d);      // O_i : (B_r × d)-matrix
-    __shared__ float *_m_i_ = _O_i_ + (B_r*d);      // m_i : (B_r)-dim vector
-    __shared__ float *_l_i_ = _m_i_ + (B_r);        // l_i : (B_r)-dim vector
-    __shared__ float *_m_ij_ = _l_i_ + (B_r);       // ~m_ij : (B_r)-dim vector
-    __shared__ float *_l_ij_ = _m_ij_ + (B_r);      // ~l_ij : (B_r)-dim vector
-    __shared__ float *_m_i_new_ = _l_ij_ + (B_r);   // m_i_new : (B_r)-dim vector
-    __shared__ float *_l_i_new_ = _m_i_new + (B_r); // l_i_new : (B_r)-dim vector
-    __shared__ float *_S_ij_ = _l_i_new_ + (B_r);    // S_ij : (B_r × B_c)-matrix
+    float *_Q_i_ = SRAM;                 // Q_i : (B_r × d)-matrix
+    float *_K_j_ = _Q_i_ + (B_r*d);      // K_j : (B_c × d)-matrix
+    float *_V_j_ = _K_j_ + (B_c*d);      // V_j : (B_c × d)-matrix
+    float *_O_i_ = _V_j_ + (B_c*d);      // O_i : (B_r × d)-matrix
+    float *_m_i_ = _O_i_ + (B_r*d);      // m_i : (B_r)-dim vector
+    float *_l_i_ = _m_i_ + (B_r);        // l_i : (B_r)-dim vector
+    float *_m_ij_ = _l_i_ + (B_r);       // ~m_ij : (B_r)-dim vector
+    float *_l_ij_ = _m_ij_ + (B_r);      // ~l_ij : (B_r)-dim vector
+    float *_m_i_new_ = _l_ij_ + (B_r);   // m_i_new : (B_r)-dim vector
+    float *_l_i_new_ = _m_i_new_ + (B_r); // l_i_new : (B_r)-dim vector
+    float *_S_ij_ = _l_i_new_ + (B_r);    // S_ij : (B_r × B_c)-matrix
 
     /*
         GPU Threadblock is of size (B_c, B_r, 1) which corresponds to the
