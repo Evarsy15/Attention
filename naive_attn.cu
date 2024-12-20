@@ -120,7 +120,7 @@ __global__ void reduce_max_sub_exp_2(float *S, int N, int BlockSize) {
     
     extern __shared__ float aux[];
     float reduce_max_val = -INFINITY;
-    printf("Reduce_max_val: %f\n", reduce_max_val);
+    //printf("Reduce_max_val: %f\n", reduce_max_val);
 
     // Reduce-max on each row of S
     for (int i = 0; i < N; i += BlockSize) {
