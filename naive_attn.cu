@@ -368,7 +368,7 @@ void softmax(torch::Tensor S) {
 
         reduce_max_sub_exp<<<ker2_GridDim, ker2_BlockDim, ker2_smem_size>>> ((float*) S.data_ptr(), N);
         reduce_sum_div<<<ker2_GridDim, ker2_BlockDim, ker2_smem_size>>> ((float*) S.data_ptr(), N);
-    } else if (max_threads_per_block * max_threads_per_block <= N) {
+    } else {
         int BlockSize = max_threads_per_block;
         dim3 ker2_GridDim(N, B*nh, 1);
         dim3 ker2_BlockDim(BlockSize, 1, 1);
