@@ -150,6 +150,7 @@ torch::Tensor flash_attention(torch::Tensor Q, torch::Tensor K, torch::Tensor V)
     auto l = torch::zeros({B, nh, N});
     auto m = torch::full({B, nh, N}, -INFINITY);
     torch::Device device(torch::kCUDA);
+    O = O.to(device);
     l = l.to(device); m = m.to(device);
 
     // Calculate SRAM size needed per block
