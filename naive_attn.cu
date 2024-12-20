@@ -315,6 +315,8 @@ torch::Tensor naive_attention(torch::Tensor Q, torch::Tensor K, torch::Tensor V)
 
         reduce_max_sub_exp_2<<<ker2_GridDim, ker2_BlockDim, ker2_smem_size>>> ((float*) T.data_ptr(), N, BlockSize);
         reduce_sum_div_2<<<ker2_GridDim, ker2_BlockDim, ker2_smem_size>>> ((float*) T.data_ptr(), N, BlockSize);
+    } else {
+        printf("Sequence length N(%d) is too large.\n", N);
     }
 
     dim3 ker3_GridDim(ceil(d, tile_size), ceil(N, tile_size), B*nh);
@@ -355,11 +357,26 @@ void softmax(torch::Tensor S) {
     const int nh = S.size(1);	// Number of heads
     const int N = S.size(2);	// Sequence size
 
-    dim3 GridDim(N, B*nh, 1);
-    dim3 BlockDim(N, 1, 1);
-    int  smem_size = sizeof(float) * N;
-    reduce_max_sub_exp<<<GridDim, BlockDim, smem_size>>> ((float*) S.data_ptr(), N);
-    reduce_sum_div<<<GridDim, BlockDim, smem_size>>> ((float*) S.data_ptr(), N);
+    int max_threads_per_block;
+    cudaDeviceGetAttribute(&max_threads_per_block, cudaDevAttrMaxThreadsPerBlock, 0);
+    printf("Max Threads per Block : %d\n", max_threads_per_block);
+
+    if (N <= max_threads_per_block) {
+        dim3 ker2_GridDim(N, B*nh, 1);
+        dim3 ker2_BlockDim(N, 1, 1);
+        int  ker2_smem_size = sizeof(float) * N;
+
+        reduce_max_sub_exp<<<ker2_GridDim, ker2_BlockDim, ker2_smem_size>>> ((float*) T.data_ptr(), N);
+        reduce_sum_div<<<ker2_GridDim, ker2_BlockDim, ker2_smem_size>>> ((float*) T.data_ptr(), N);
+    } else if (max_threads_per_block * max_threads_per_block <= N) {
+        int BlockSize = max_threads_per_block;
+        dim3 ker2_GridDim(N, B*nh, 1);
+        dim3 ker2_BlockDim(BlockSize, 1, 1);
+        int  ker2_smem_size = sizeof(float) * BlockSize;
+
+        reduce_max_sub_exp_2<<<ker2_GridDim, ker2_BlockDim, ker2_smem_size>>> ((float*) T.data_ptr(), N, BlockSize);
+        reduce_sum_div_2<<<ker2_GridDim, ker2_BlockDim, ker2_smem_size>>> ((float*) T.data_ptr(), N, BlockSize);
+    }
 }
 
 torch::Tensor matrix_multiply(torch::Tensor P, torch::Tensor V) {
