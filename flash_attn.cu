@@ -70,7 +70,7 @@ __global__ void flash_attention(const float *Q, const float *K, const float *V, 
             float acc = 0.0;
             for (int k = 0; k < d; k++)
                 acc += _Q_i_[ty*d + k] * _K_j_[tx*d + k];
-            _S_[ty*B_c + tx] = acc;
+            _S_ij_[ty*B_c + tx] = acc;
             __syncthreads();
 
             // Compute ~m_ij = rowmax(S_ij)
@@ -174,8 +174,8 @@ torch::Tensor flash_attention(torch::Tensor Q, torch::Tensor K, torch::Tensor V)
     dim3 GridDim(1, 1, B*nh);
     dim3 BlockDim(B_c, B_r, 1);
     flash_attention<<<GridDim, BlockDim, SharedMemSize>>> (
-        (float*) Q.data_ptr, (float*) K.data_ptr, (float*) V.data_ptr, 
-        (float*) O.data_ptr, (float*) m.data_ptr, (float*) l.data_ptr,
+        (float*) Q.data_ptr(), (float*) K.data_ptr(), (float*) V.data_ptr(), 
+        (float*) O.data_ptr(), (float*) m.data_ptr(), (float*) l.data_ptr(),
         N, d, B_r, B_c, T_r, T_c
     );
 
