@@ -4,12 +4,6 @@
 #include <cuda_runtime.h>
 #define tile_size 32
 
-// Implement naive_attention kernel below
-// __global__ void matmul() {}
-// __global__ void reduce_sum() {}
-// __global__ void reduce_max() {}
-// ...
-
 __forceinline__ __host__ __device__ unsigned int ceil(unsigned int M, unsigned int N) {
     // assert(N != 0);
     return (M + N - 1) / N;
@@ -17,22 +11,6 @@ __forceinline__ __host__ __device__ unsigned int ceil(unsigned int M, unsigned i
 
 __forceinline__ __device__ double max_float(const float a, const float b) {
     return (a > b ? a : b);
-}
-
-/*
-    transpose(A, A_T, M, N) :
-        Transpose M×N-matrix A into A_T.
-*/
-__global__ void transpose(const float *A, float *A_T, const int M, const int N) {
-    int row = blockDim.x * blockIdx.x + threadIdx.x;
-    int col = blockDim.y * blockIdx.y + threadIdx.y;
-
-    __shared__ float tileA[tile_size][tile_size+1];
-    if (row < M && col < N)
-        tileA[threadIdx.y][threadIdx.x] = A[row*N + col];
-
-    if (row < M && col < N)
-        A_T[col*M + row] = tileA[threadIdx.y][threadIdx.x];
 }
 
 /*
@@ -298,7 +276,7 @@ torch::Tensor naive_attention(torch::Tensor Q, torch::Tensor K, torch::Tensor V)
         reduce_max_sub_exp<<<ker2_GridDim, ker2_BlockDim, ker2_smem_size>>> ((float*) T.data_ptr(), N);
         reduce_sum_div<<<ker2_GridDim, ker2_BlockDim, ker2_smem_size>>> ((float*) T.data_ptr(), N);
     } else {
-        int BlockSize = max_threads_per_block;
+        int BlockSize = 512;
         dim3 ker2_GridDim(N, B*nh, 1);
         dim3 ker2_BlockDim(BlockSize, 1, 1);
         int  ker2_smem_size = sizeof(float) * BlockSize;
@@ -357,7 +335,7 @@ void softmax(torch::Tensor S) {
         reduce_max_sub_exp<<<ker2_GridDim, ker2_BlockDim, ker2_smem_size>>> ((float*) S.data_ptr(), N);
         reduce_sum_div<<<ker2_GridDim, ker2_BlockDim, ker2_smem_size>>> ((float*) S.data_ptr(), N);
     } else {
-        int BlockSize = max_threads_per_block;
+        int BlockSize = 512;
         dim3 ker2_GridDim(N, B*nh, 1);
         dim3 ker2_BlockDim(BlockSize, 1, 1);
         int  ker2_smem_size = sizeof(float) * BlockSize;
