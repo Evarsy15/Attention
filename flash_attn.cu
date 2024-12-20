@@ -2,6 +2,15 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 
+__forceinline__ __host__ __device__ unsigned int ceil(unsigned int M, unsigned int N) {
+    // assert(N != 0);
+    return (M + N - 1) / N;
+}
+
+__forceinline__ __device__ double max_float(const float a, const float b) {
+    return (a > b ? a : b);
+}
+
 // Implement flash_attention kernel below
 __global__ void flash_attention(const float *Q, const float *K, const float *V, float *O, float *m, float *l,
                                 int N, int d, int B_r, int B_c, int T_r, int T_c) {
