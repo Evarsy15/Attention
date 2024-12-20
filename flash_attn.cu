@@ -148,7 +148,7 @@ torch::Tensor flash_attention(torch::Tensor Q, torch::Tensor K, torch::Tensor V)
     // Initialize O, l, m to HBM
     auto O = torch::zeros_like(Q);
     auto l = torch::zeros({B, nh, N});
-    auto m = torch::full({B, nh, N}, -50000000.0);
+    auto m = torch::full({B, nh, N}, -INFINITY);
     torch::Device device(torch::kCUDA);
     O = O.to(device);
     l = l.to(device); m = m.to(device);
