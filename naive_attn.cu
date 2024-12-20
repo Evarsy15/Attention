@@ -144,9 +144,10 @@ __global__ void reduce_max_sub_exp_2(float *S, int N, int BlockSize) {
         
     // Compute exp(S-m) on each row
     __syncthreads();
-    for (int i = 0; i < N; i += BlockSize)
+    for (int i = 0; i < N; i += BlockSize) {
         if (i + col < N)
             S[idx + i] = exp(S[idx + i] - reduce_max_val);
+    }
 }
 
 /*
@@ -200,7 +201,7 @@ __global__ void reduce_sum_div_2(float *S, int N, int BlockSize) {
         __syncthreads();
 
         // Process Reduce-max on shared memory vector 'aux'
-        int active = BlockSize < (N - i) ? BlockSize : (N - i);
+        int active = BlockSize;
         for (; active > 1; active = ceil(active, 2)) {
             int stride = ceil(active, 2);
             if (col + stride < active)
@@ -211,22 +212,12 @@ __global__ void reduce_sum_div_2(float *S, int N, int BlockSize) {
         reduce_sum_val += aux[0];
     }
     
-        
-    // Process Reduce-max on shared memory vector 'aux'
-    int active = N;
-    for (; active > 1; active = ceil(active, 2)) {
-        int stride = ceil(active, 2);
-        if (col + stride < active)
-            aux[col] += aux[col + stride];
-        __syncthreads();
-        
-    }
-    
     // Compute S_ij / sum(S_ij)
     __syncthreads();
-    for (int i = 0; i < N; i += BlockSize)
+    for (int i = 0; i < N; i += BlockSize) {
         if (i + col < N)
             S[idx + i] = S[idx + i] / reduce_sum_val;
+    }
 }
 
 /*
@@ -356,7 +347,7 @@ void softmax(torch::Tensor S) {
 
     int max_threads_per_block;
     cudaDeviceGetAttribute(&max_threads_per_block, cudaDevAttrMaxThreadsPerBlock, 0);
-    printf("Max Threads per Block : %d\n", max_threads_per_block);
+    printf("Squence Length : %d, Max Threads per Block : %d\n", N, max_threads_per_block);
 
     if (N <= max_threads_per_block) {
         dim3 ker2_GridDim(N, B*nh, 1);
