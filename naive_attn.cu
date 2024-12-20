@@ -120,16 +120,19 @@ __global__ void reduce_max_sub_exp_2(float *S, int N, int BlockSize) {
     
     extern __shared__ float aux[];
     float reduce_max_val = -INFINITY;
+    printf("Reduce_max_val: %f\n", reduce_max_val);
 
     // Reduce-max on each row of S
     for (int i = 0; i < N; i += BlockSize) {
         // Load target row-vector into shared memory
         if (i + col < N)
             aux[col] = S[idx + i];
+        else
+            aux[col] = -INFINITY;
         __syncthreads();
         
         // Process Reduce-max on shared memory vector 'aux'
-        int active = BlockSize < (N - i) ? BlockSize : (N - i);
+        int active = BlockSize;
         for (; active > 1; active = ceil(active, 2)) {
             int stride = ceil(active, 2);
             if (col + stride < active)
@@ -193,6 +196,8 @@ __global__ void reduce_sum_div_2(float *S, int N, int BlockSize) {
         // Load target row-vector into shared memory
         if (i + col < N)
             aux[col] = S[idx + i];
+        else
+            aux[col] = 0.0;
         __syncthreads();
 
         // Process Reduce-max on shared memory vector 'aux'
